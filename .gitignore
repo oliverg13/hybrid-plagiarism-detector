@@ -4,6 +4,8 @@ main_old.py
 utils_old.py
 test.py
 pan-plagiarism-corpus-2011
+cleaned-source-documents
+cleaned-suspicious-documents
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

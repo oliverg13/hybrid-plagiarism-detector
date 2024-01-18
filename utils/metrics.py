@@ -7,12 +7,16 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from nltk.tokenize import word_tokenize
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer
 
 # Local imports
 from utils.general import printt, N_PROCESSES
 from utils.data_load_extract import load_data_and_models
 from utils.machine_learning import transform_in_parallel, train_tfidf_vectorizer, get_word_weights_and_vectors
+
+# Warnings Filtering
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 def similarity_semantic(S1, S2):
     numerator = 2 * np.sum(S1.multiply(S2), axis=1)

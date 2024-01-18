@@ -7,6 +7,9 @@ from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from scipy.sparse import vstack
 
+# Warnings Filtering
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 def transform_chunk(docs_chunk, vectorizer_params):
     """Worker function to transform a chunk of documents."""
@@ -20,11 +23,12 @@ def transform_chunk(docs_chunk, vectorizer_params):
         print(f"Error processing chunk: {e}")
         return None
 
-
 def transform_in_parallel(docs, vectorizer, N_PROCESSES):
     """Transforms a list of documents in parallel using a vectorizer."""
     # Serialize vectorizer's parameters
     vectorizer_params = vectorizer.get_params()
+    # This is necessary to make sure we are ussing the proper vocab
+    vectorizer_params["vocabulary"] = list(vectorizer.get_feature_names_out())
 
     # Chunk the documents list for parallel processing
     chunk_size = int(np.ceil(len(docs) / N_PROCESSES))

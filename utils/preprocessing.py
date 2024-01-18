@@ -2,7 +2,7 @@
 # Standard library imports
 import os
 import re
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 
 # Third-party imports
 import pandas as pd

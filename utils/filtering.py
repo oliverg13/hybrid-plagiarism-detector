@@ -14,6 +14,10 @@ from utils.data_load_extract import (read_dataframe,read_files_from_directory)
 from utils.machine_learning import transform_in_parallel
 from utils.general import printt, N_PROCESSES
 
+# Warnings Filtering
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+
 def filter_documents(
     i, suspicious_filename, suspicious_matrix, common_tokens_matrix, source_filenames
 ):
@@ -56,6 +60,7 @@ def document_filtering(cleaned_suspicious_path, cleaned_source_path):
 
     # Convert documents to binary matrix representations
     suspicious_matrix = vectorizer.fit_transform(suspicious_docs)
+    #source_matrix = vectorizer.transform(source_docs)
     source_matrix = transform_in_parallel(source_docs, vectorizer, N_PROCESSES)
 
     # Calculate common tokens between suspicious and source documents
