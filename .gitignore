@@ -1,3 +1,10 @@
+# Custom files
+cc.en.300.bin
+dev.ipynb
+main_old.py
+utils_old.py
+test.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
