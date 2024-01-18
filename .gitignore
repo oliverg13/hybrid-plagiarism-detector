@@ -1,9 +1,9 @@
 # Custom files
 cc.en.300.bin
-dev.ipynb
 main_old.py
 utils_old.py
 test.py
+pan-plagiarism-corpus-2011
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
