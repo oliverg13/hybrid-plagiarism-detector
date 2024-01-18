@@ -1,5 +1,6 @@
 # Standard library imports
-from multiprocessing import Pool, cpu_count
+import os
+from multiprocessing import Pool
 
 # Third-party library imports
 import numpy as np
@@ -9,7 +10,7 @@ from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
 # Local imports
-from utils.general import printt
+from utils.general import printt, N_PROCESSES
 from utils.data_load_extract import load_data_and_models
 from utils.machine_learning import transform_in_parallel, train_tfidf_vectorizer, get_word_weights_and_vectors
 
@@ -143,7 +144,7 @@ def evaluate_detection_multiprocessing(df_references, df_detections):
 
     detections_list = df_detections.to_dict("records")
 
-    with Pool(cpu_count()) as pool:
+    with Pool(N_PROCESSES) as pool:
         results = pool.starmap(
             process_row,
             [(detection, df_references_dict) for detection in detections_list],
@@ -174,7 +175,7 @@ def evaluate_detection_multiprocessing(df_references, df_detections):
 
     return precision, recall, f1_score, plagdet
 
-def similarity_computation(cleaned_suspicious_path, cleaned_source_path, output_dir):
+def similarity_computation(cleaned_suspicious_path, cleaned_source_path, output_dir, BETA):
     # Load data and pre-trained models
     printt("Loading FastText and data")
     ft, suspicious_docs, source_docs = load_data_and_models(

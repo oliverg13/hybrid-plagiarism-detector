@@ -43,7 +43,6 @@ def collect_filepaths(directory, filetype=".txt"):
 
     return filepaths
 
-
 def extract_source_references(filepath):
     tree = ET.parse(filepath)
     root = tree.getroot()
@@ -104,7 +103,6 @@ def read_files_from_directory(directory_path, filetype=".parquet"):
         doc = " ".join(cleaned_sentences)  # + " "
         docs.append(doc)
     return docs, filenames
-
 
 def read_dataframe(path: str):
     if path.endswith(".csv"):

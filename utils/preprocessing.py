@@ -11,6 +11,7 @@ from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import sent_tokenize, word_tokenize
 
 # Local imports
+from utils.general import N_PROCESSES
 from utils.data_load_extract import collect_filepaths
 
 def clean_text(text, lemmatizer=None, stopwords_list=list()):

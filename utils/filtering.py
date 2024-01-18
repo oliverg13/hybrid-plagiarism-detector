@@ -1,19 +1,18 @@
 # Standard library imports
 import os
-from multiprocessing import Pool, cpu_count
-
+from multiprocessing import Pool
 
 # Third-party library imports
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
-from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.tokenize import word_tokenize
 from tqdm import tqdm
 
 # Local imports
 from utils.data_load_extract import (read_dataframe,read_files_from_directory)
 from utils.machine_learning import transform_in_parallel
-from utils.general import printt
+from utils.general import printt, N_PROCESSES
 
 def filter_documents(
     i, suspicious_filename, suspicious_matrix, common_tokens_matrix, source_filenames
@@ -42,6 +41,7 @@ def filter_documents(
             potential_sources.append(source_filenames[j])
 
     return suspicious_filename, potential_sources
+
 def document_filtering(cleaned_suspicious_path, cleaned_source_path):
     # Initialize a binary CountVectorizer for tokenizing documents
     vectorizer = CountVectorizer(binary=True, tokenizer=word_tokenize)

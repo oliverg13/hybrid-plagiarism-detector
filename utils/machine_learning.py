@@ -1,12 +1,12 @@
 # Standard library imports
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 
 # Third-party library imports
 import numpy as np
-import pandas as pd
 from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from scipy.sparse import vstack
+
 
 def transform_chunk(docs_chunk, vectorizer_params):
     """Worker function to transform a chunk of documents."""
