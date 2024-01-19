@@ -114,7 +114,7 @@ def sentence_filtering(cleaned_suspicious_path, cleaned_source_path, suspicious_
     printt("Calculating sparse matrices of sentences from source documents")
 
     source_sparse_matrices = {}
-    for source_filename in reduced_source_filenames:
+    for source_filename in tqdm(reduced_source_filenames):
         source_filepath = os.path.join(cleaned_source_path, source_filename)
         df_source = read_dataframe(source_filepath)
         source_sentences = df_source["cleaned_sentence"]
@@ -135,7 +135,7 @@ def sentence_filtering(cleaned_suspicious_path, cleaned_source_path, suspicious_
     ]
 
     suspicious_filenames = list(suspicious_to_sources.keys())
-    for suspicious_filename in suspicious_filenames:
+    for suspicious_filename in tqdm(suspicious_filenames):
         suspicious_filepath = os.path.join(cleaned_suspicious_path, suspicious_filename)
         df_suspicious = read_dataframe(suspicious_filepath)
         suspicious_sentences = df_suspicious["cleaned_sentence"]
@@ -145,9 +145,10 @@ def sentence_filtering(cleaned_suspicious_path, cleaned_source_path, suspicious_
 
         detections = []
         for source_filename in potential_sources:
+            source_filepath = os.path.join(cleaned_source_path, source_filename)
+            df_source = read_dataframe(source_filepath)
             source_sentences_matrix = source_sparse_matrices[source_filename]
             common_tokens_matrix = (suspicious_sentences_matrix@source_sentences_matrix.T).tocoo()
-            
             for i, j, v in zip(common_tokens_matrix.row, common_tokens_matrix.col, common_tokens_matrix.data):
                 if v >= 5:
                     detected_suspicious_offset = df_suspicious["offset"][i]
@@ -173,5 +174,5 @@ def sentence_filtering(cleaned_suspicious_path, cleaned_source_path, suspicious_
             df_sentences_detections["suspicious_filename"] = df_sentences_detections["suspicious_filename"].str.replace(".parquet", ".txt")
             df_sentences_detections["source_filename"] = df_sentences_detections["source_filename"].str.replace(".parquet", ".txt")
             
-            output_path = os.join.path(output_dir, suspicious_filename)
+            output_path = os.path.join(output_dir, suspicious_filename)
             df_sentences_detections.to_parquet(output_path)

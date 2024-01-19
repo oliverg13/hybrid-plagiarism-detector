@@ -6,6 +6,7 @@ test.py
 pan-plagiarism-corpus-2011
 cleaned-source-documents
 cleaned-suspicious-documents
+sent-matches-dir
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
