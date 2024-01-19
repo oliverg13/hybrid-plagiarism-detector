@@ -79,7 +79,6 @@ def clean_text(text, lemmatizer=None, stopwords_list=list()):
 
     return results
 
-
 def preprocess_document(filepath, cleaned_path, lemmatizer=None, stopwords_list=list()):
     filename = os.path.basename(filepath)
     cleaned_filepath = os.path.join(cleaned_path, filename)[:-3] + "parquet"

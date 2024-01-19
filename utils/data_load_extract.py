@@ -156,27 +156,3 @@ def extract_sources_from_suspicious_xml(suspicious_path):
     df_plagiarism_references = pd.DataFrame(plagiarism_information_data, columns=cols)
 
     return df_plagiarism_references
-
-def divide_df_sentences(current_dir):
-    df_sentences_detections = pd.read_parquet("df_sentences_detections.parquet")
-
-    # Get unique filenames
-    unique_filenames = list(df_sentences_detections["suspicious_filename"].unique())
-
-    # Create a directory for the output files
-    output_dir = os.path.join(current_dir, "sentences-detections")
-    ensure_directory_exists_and_is_empty(output_dir)
-
-    # Iterate over each filename
-    for filename in unique_filenames:
-        # Convert filename to a valid file name for Parquet
-        # Example: replace characters not allowed in filenames
-        filename_to_parquet = filename.replace(".txt", ".parquet")
-        filepath = os.path.join(output_dir, filename_to_parquet)
-        # Filter the DataFrame
-        filtered_df = df_sentences_detections.query(
-            f"`suspicious_filename` == '{filename}'"
-        )
-
-        # Save to Parquet
-        filtered_df.to_parquet(filepath)
