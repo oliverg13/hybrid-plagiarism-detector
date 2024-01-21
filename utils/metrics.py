@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from nltk.tokenize import word_tokenize
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+import fasttext
 
 # Local imports
 from utils.general import printt, N_PROCESSES
@@ -18,17 +19,6 @@ from utils.machine_learning import transform_in_parallel, train_tfidf_vectorizer
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
-def similarity_semantic(S1, S2):
-    numerator = 2 * np.sum(S1.multiply(S2), axis=1)
-    denominator = np.sum(S1.multiply(S1), axis=1) + np.sum(S2.multiply(S2), axis=1)
-    return numerator / denominator
-
-def similarity_syntactic(S1, S2):
-    diff = S1 - S2
-    summ = S1 + S2
-    numerator = np.sqrt(np.sum(diff.multiply(diff), axis=1))
-    denominator = np.sqrt(np.sum(summ.multiply(summ), axis=1))
-    return 1 - numerator / denominator
 
 def overlap(a1, a2, b1, b2):
     """Check if two intervals (a1, a2) and (b1, b2) overlap."""
@@ -179,69 +169,97 @@ def evaluate_detection_multiprocessing(df_references, df_detections):
 
     return precision, recall, f1_score, plagdet
 
-def similarity_computation(cleaned_suspicious_path, cleaned_source_path, output_dir, BETA):
-    # Load data and pre-trained models
-    printt("Loading FastText and data")
-    ft, suspicious_docs, source_docs = load_data_and_models(
-        cleaned_suspicious_path, cleaned_source_path
-    )
+def create_syn_sem_matrices(token_to_tfidf_weight, token_to_word_vector, join_matrix_vocab, sent_tokenized):
+    sent_semantic_matrix = []
+    sent_syntactic_matrix = []
+    sent_matrix_embeddings = np.array([token_to_word_vector[sent_token] for sent_token in sent_tokenized])
+    for jm_token in join_matrix_vocab:
+        if jm_token in sent_tokenized:
+            sent_semantic_matrix.append(1)
+            sent_syntactic_matrix.append(token_to_tfidf_weight[jm_token])
+        else:
+            jm_token_vector = token_to_word_vector[jm_token]
+            cosine_similarity_matrix = sent_matrix_embeddings@jm_token_vector.T
+            idx_largest_similarity_token = np.argmax(cosine_similarity_matrix)
+            largest_similarity_value = cosine_similarity_matrix[idx_largest_similarity_token]
+            sent_token = sent_tokenized[idx_largest_similarity_token]
+            sent_semantic_matrix.append(largest_similarity_value)
+            sent_syntactic_matrix.append(token_to_tfidf_weight[sent_token])
+    sent_semantic_matrix = np.array(sent_semantic_matrix)
+    sent_syntactic_matrix = np.array(sent_syntactic_matrix)
+    return sent_semantic_matrix, sent_syntactic_matrix
 
-    # Train the TF-IDF vectorizer and retrieve the common vocabulary
-    printt("Train the TF-IDF vectorizer and retrieve the common vocabulary")
-    tfidf_vectorizer, common_vocabulary = train_tfidf_vectorizer(
-        suspicious_docs, source_docs
-    )
+def similarity_semantic(vec1,vec2):
+    numerator = 2*vec1.dot(vec2)
+    denominator = vec1.dot(vec1) + vec2.dot(vec2)
+    return numerator / denominator
 
-    # Get TF-IDF weights and word vectors for the common vocabulary
-    printt("Get TF-IDF weights and word vectors for the common vocabulary")
-    tfidf_weights, sum_word_vectors = get_word_weights_and_vectors(ft, tfidf_vectorizer)
+def similarity_syntactic(vec1, vec2):
+    diff = vec1 - vec2
+    summ = vec1 + vec2
+    numerator = np.linalg.norm(diff)
+    denominator = np.linalg.norm(summ)
+    return 1 - numerator / denominator
 
-    # Initialize the binary count vectorizer with the shared vocabulary
-    count_vectorizer = CountVectorizer(
-        binary=True, vocabulary=common_vocabulary, tokenizer=word_tokenize
-    )
+def similarity_computation_v2(cleaned_suspicious_path, cleaned_source_path, sent_matches_dir, beta):
+    # Load fasttext
+    printt("Loading FastText")
+    ft = fasttext.load_model("cc.en.300.bin")
 
-    del ft, suspicious_docs, source_docs, tfidf_vectorizer, common_vocabulary
+    # Load TF-IDF vectorizer and train it on all the suspicious and source documents available
+    tfidf_vectorizer = TfidfVectorizer(norm=None, tokenizer=word_tokenize)
 
-    df_filenames = os.listdir(output_dir)
-    df_filepaths = [
-        os.path.join(output_dir, df_filename) for df_filename in df_filenames
-    ]
+    cleaned_suspicious_filenames = os.listdir(cleaned_suspicious_path)
+    cleaned_suspicious_filepaths = [os.path.join(cleaned_suspicious_path, suspicious_filename) for suspicious_filename in cleaned_suspicious_filenames]
 
-    for df_filepath in tqdm(df_filepaths, unit="file"):
-        df = pd.read_parquet(df_filepath)
+    cleaned_source_filenames = os.listdir(cleaned_source_path)
+    cleaned_source_filepaths = [os.path.join(cleaned_source_path, source_filename) for source_filename in cleaned_source_filenames]
 
-        suspicious_sentences = df["suspicious_cleaned_sentence"]
-        source_sentences = df["detected_source_cleaned_sentence"]
+    all_cleaned_documents_filepaths = cleaned_suspicious_filepaths + cleaned_source_filepaths
 
-        suspicious_count = transform_in_parallel(
-            suspicious_sentences, count_vectorizer, N_PROCESSES
-        )
-        source_count = transform_in_parallel(
-            source_sentences, count_vectorizer, N_PROCESSES
-        )
+    all_documents = []
+    for document_filepath in all_cleaned_documents_filepaths:
+        df_temp = pd.read_parquet(document_filepath)
+        cleaned_sentences = df_temp["cleaned_sentence"]
+        cleaned_document = " ".join(cleaned_sentences)
+        all_documents.append(cleaned_document)
 
-        S1_syntactic = suspicious_count.multiply(tfidf_weights)
-        S2_syntactic = source_count.multiply(tfidf_weights)
+    tfidf_vectorizer.fit(all_documents)
+    vocab = tfidf_vectorizer.get_feature_names_out()
+    tfidf_weights = tfidf_vectorizer.transform(vocab).diagonal()
+    token_to_tfidf_weight = {token: tfidf_weight for token, tfidf_weight in zip(vocab, tfidf_weights)}
 
-        S1_semantic = suspicious_count.multiply(sum_word_vectors)
-        S2_semantic = source_count.multiply(sum_word_vectors)
+    del tfidf_vectorizer, all_documents
 
-        sim_syntactic = similarity_syntactic(S1_syntactic, S2_syntactic)
-        sim_semantic = similarity_semantic(S1_semantic, S2_semantic)
+    def normalize_vec(x): return x/np.linalg.norm(x)
+    token_to_word_vector = {token: normalize_vec(ft.get_word_vector(token)) for token in vocab} 
 
-        hybrid_similarity = BETA * sim_semantic + (1 - BETA) * sim_syntactic
+    del ft
 
-        df["hybrid_similarity"] = hybrid_similarity
+    # Now is time to go with the dataframes of sentences matches
 
-        df.to_parquet(df_filepath)
+    sent_matches_filenames = os.listdir(sent_matches_dir)
+    for sent_matches_filename in sent_matches_filenames: 
+        printt(f"Calculating similarities for sentences of {sent_matches_filename}")
+        sent_matches_filepath = os.path.join(sent_matches_dir, sent_matches_filename)
+        df_sent_matches = pd.read_parquet(sent_matches_filepath)
+        all_hybrid_similarities =[]
+        for idx in tqdm(range(len(df_sent_matches))):
+            row = df_sent_matches.iloc[idx]
+            sus_sent_tokenized = word_tokenize(row["suspicious_cleaned_sentence"])
+            src_sent_tokenized = word_tokenize(row["detected_source_cleaned_sentence"])
+            join_matrix_vocab = list(set(sus_sent_tokenized + src_sent_tokenized))
 
-    df_list = []
-    for df_filepath in df_filepaths:
-        df = pd.read_parquet(df_filepath)
-        df_list.append(df)
+            sus_semantic_matrix, sus_syntactic_matrix = create_syn_sem_matrices(token_to_tfidf_weight, token_to_word_vector, join_matrix_vocab, sus_sent_tokenized)
+            src_semantic_matrix, src_syntactic_matrix = create_syn_sem_matrices(token_to_tfidf_weight, token_to_word_vector, join_matrix_vocab, src_sent_tokenized)
 
-    df_similarity = pd.concat(df_list)
+            similarity_semantic_value = similarity_semantic(sus_semantic_matrix, src_semantic_matrix)
+            simimilarity_syntactic_value = similarity_syntactic(sus_syntactic_matrix, src_syntactic_matrix)
 
-    return df_similarity
+            hybrid_similarity = beta * similarity_semantic_value + (1 - beta) * simimilarity_syntactic_value
 
+            all_hybrid_similarities.append(hybrid_similarity)
+
+        df_sent_matches["hybrid_similarity"] = pd.Series(all_hybrid_similarities)
+
+        df_sent_matches.to_parquet(sent_matches_filepath)

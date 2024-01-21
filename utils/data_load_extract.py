@@ -91,13 +91,8 @@ def read_files_from_directory(directory_path, filetype=".parquet"):
     ]
     for filename in filenames:
         filepath = os.path.join(directory_path, filename)
-
-        if filetype == ".csv":
-            df = pd.read_csv(filepath)
-        elif filetype == ".parquet":
-            df = pd.read_parquet(filepath)
-        else:
-            raise ValueError(f"Unsupported filetype")
+        
+        df = read_dataframe(filepath)
 
         cleaned_sentences = df["cleaned_sentence"]
         doc = " ".join(cleaned_sentences)  # + " "
