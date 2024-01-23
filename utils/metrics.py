@@ -7,18 +7,15 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from nltk.tokenize import word_tokenize
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 import fasttext
 
 # Local imports
 from utils.general import printt, N_PROCESSES
-from utils.data_load_extract import load_data_and_models
-from utils.machine_learning import transform_in_parallel, train_tfidf_vectorizer, get_word_weights_and_vectors
 
 # Warnings Filtering
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
-
 
 def overlap(a1, a2, b1, b2):
     """Check if two intervals (a1, a2) and (b1, b2) overlap."""
@@ -201,7 +198,7 @@ def similarity_syntactic(vec1, vec2):
     denominator = np.linalg.norm(summ)
     return 1 - numerator / denominator
 
-def similarity_computation_v2(cleaned_suspicious_path, cleaned_source_path, sent_matches_dir, beta):
+def similarity_computation(cleaned_suspicious_path, cleaned_source_path, sent_matches_dir, beta):
     # Load fasttext
     printt("Loading FastText")
     ft = fasttext.load_model("cc.en.300.bin")
@@ -239,8 +236,11 @@ def similarity_computation_v2(cleaned_suspicious_path, cleaned_source_path, sent
     # Now is time to go with the dataframes of sentences matches
 
     sent_matches_filenames = os.listdir(sent_matches_dir)
+    counter = 0
+    total_elements = len(sent_matches_filenames)
     for sent_matches_filename in sent_matches_filenames: 
-        printt(f"Calculating similarities for sentences of {sent_matches_filename}")
+        counter += 1
+        printt(f"Calculating similarities for sentences of {sent_matches_filename}, [{counter}/{total_elements}]")
         sent_matches_filepath = os.path.join(sent_matches_dir, sent_matches_filename)
         df_sent_matches = pd.read_parquet(sent_matches_filepath)
         all_hybrid_similarities =[]

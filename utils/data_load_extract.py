@@ -108,26 +108,6 @@ def read_dataframe(path: str):
         raise ValueError(f"Unsupported filetype")
     return df
 
-def load_data_and_models(cleaned_suspicious_path, cleaned_source_path):
-    """
-    Loads FastText model and reads suspicious and source documents.
-
-    Parameters:
-    - cleaned_suspicious_path (str): Path to the cleaned suspicious documents directory.
-    - cleaned_source_path (str): Path to the cleaned source documents directory.
-
-    Returns:
-    - FastText object: Loaded FastText model.
-    - list: List of suspicious documents.
-    - list: List of source documents.
-    """
-    ft = fasttext.load_model("cc.en.300.bin")
-    suspicious_docs, suspicious_filenames = read_files_from_directory(
-        cleaned_suspicious_path
-    )
-    source_docs, source_filenames = read_files_from_directory(cleaned_source_path)
-    return ft, suspicious_docs, source_docs
-
 def extract_sources_from_suspicious_xml(suspicious_path):
     # Collect all XML file paths from the given directory
     filepaths = collect_filepaths(suspicious_path, filetype=".xml")

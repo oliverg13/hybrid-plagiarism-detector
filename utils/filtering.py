@@ -10,7 +10,7 @@ from nltk.tokenize import word_tokenize
 from tqdm import tqdm
 
 # Local imports
-from utils.data_load_extract import (read_dataframe,read_files_from_directory)
+from utils.data_load_extract import read_dataframe, read_files_from_directory
 from utils.machine_learning import transform_in_parallel
 from utils.general import printt, N_PROCESSES
 

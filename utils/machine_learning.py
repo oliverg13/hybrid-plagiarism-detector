@@ -43,24 +43,3 @@ def transform_in_parallel(docs, vectorizer, N_PROCESSES):
     # Merge the results (vertically stack the matrices)
     result_matrix = vstack([chunk for chunk in transformed_chunks if chunk is not None])
     return result_matrix
-
-def train_tfidf_vectorizer(suspicious_docs, source_docs):
-    tfidf_vectorizer = TfidfVectorizer(norm=None, tokenizer=word_tokenize)
-    tfidf_vectorizer.fit(suspicious_docs + source_docs)
-    common_vocabulary = tfidf_vectorizer.get_feature_names_out()
-    return tfidf_vectorizer, common_vocabulary
-
-def get_word_weights_and_vectors(ft, tfidf_vectorizer):
-    # Extract the vocabulary from the TF-IDF vectorizer
-    tfidf_vocab = tfidf_vectorizer.get_feature_names_out()
-
-    # Get the diagonal TF-IDF weights for the terms
-    tfidf_weights = tfidf_vectorizer.transform(tfidf_vocab).diagonal()
-
-    # Fetch the FastText word vectors for each term in the vocabulary
-    word_vectors = [ft.get_word_vector(token) for token in tfidf_vocab]
-
-    # Sum the word vectors across words
-    sum_word_vectors = np.sum(np.array(word_vectors), axis=1)
-
-    return tfidf_weights, sum_word_vectors
