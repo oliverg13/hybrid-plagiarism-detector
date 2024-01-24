@@ -1,6 +1,5 @@
 # Standard library imports
 import os
-from multiprocessing import Pool
 
 # Third-party library imports
 import numpy as np
@@ -11,7 +10,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import fasttext
 
 # Local imports
-from utils.general import printt, N_PROCESSES
+from utils.general import printt
 
 # Warnings Filtering
 import warnings
@@ -23,7 +22,6 @@ def overlap(a1, a2, b1, b2):
 
 def evaluate_detections(sent_matches_dir, THRESHOLD, df_references):
     sent_matches_filenames = os.listdir(sent_matches_dir)
-    printt("Evaluate detections against ground truth")
     TP, FP = 0, 0 # Initiliaze counting for this threshold value
     S_R, R_S = set(), set() # initialize empty sets to calculate granularity and plagdet
     for sent_matches_filename in sent_matches_filenames:

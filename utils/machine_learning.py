@@ -3,7 +3,6 @@ from multiprocessing import Pool
 
 # Third-party library imports
 import numpy as np
-from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from scipy.sparse import vstack
 

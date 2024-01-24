@@ -2,7 +2,7 @@
 import time
 from multiprocessing import cpu_count
 
-N_PROCESSES = 6 #cpu_count()
+N_PROCESSES = cpu_count() - 1 if cpu_count() > 1 else 1
 
 def printt(text):
     print(f"[{time.strftime('%H:%M:%S')}]", text)
