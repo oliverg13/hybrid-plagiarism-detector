@@ -21,62 +21,58 @@ def overlap(a1, a2, b1, b2):
     """Check if two intervals (a1, a2) and (b1, b2) overlap."""
     return max(0, min(a2, b2) - max(a1, b1)) > 0
 
-def evaluate_detection(df_references, df_detections):
-    TP = 0
-    FP = 0
-    FN = 0
+def evaluate_detections(sent_matches_dir, THRESHOLD, df_references):
+    sent_matches_filenames = os.listdir(sent_matches_dir)
+    printt("Evaluate detections against ground truth")
+    TP, FP = 0, 0 # Initiliaze counting for this threshold value
+    S_R, R_S = set(), set() # initialize empty sets to calculate granularity and plagdet
+    for sent_matches_filename in sent_matches_filenames:
+        sent_matches_filepath = os.path.join(sent_matches_dir, sent_matches_filename)
+        df = pd.read_parquet(sent_matches_filepath)
+        df = df[df["hybrid_similarity"]>=THRESHOLD]
 
-    detected_cases_count = (
-        {}
-    )  # dictionary to store count of detections for each reference
-    for idx, detection in tqdm(
-        df_detections.iterrows(), total=len(df_detections), unit="row"
-    ):
-        suspicious_filename = detection["suspicious_filename"]
-        source_filename = detection["source_filename"]
-        suspicious_offset = detection["suspicious_offset"]
-        suspicious_length = detection["suspicious_length"]
-        source_offset = detection["source_offset"]
-        source_length = detection["source_length"]
+        printt(f"Evaluate detections of {sent_matches_filename}")
+        for idx in tqdm(range(len(df)), unit="row"):
+            row = df.iloc[idx] # select row from df detections
+            suspicious_filename = row["suspicious_filename"]
+            suspicious_offset = row["suspicious_offset"]
+            suspicious_length = row["suspicious_length"]
+            source_filename = row["source_filename"]
+            source_offset = row["source_offset"]
+            source_length = row["source_length"]
 
-        matching_rows = df_references[
-            (df_references["suspicious_filename"] == suspicious_filename)
-            & (df_references["source_filename"] == source_filename)
-        ]
-
-        overlap_found = False
-
-        for _, reference in matching_rows.iterrows():
-            if overlap(
-                suspicious_offset,
-                suspicious_offset + suspicious_length,
-                reference["suspicious_offset"],
-                reference["suspicious_offset"] + reference["suspicious_length"],
-            ) and overlap(
-                source_offset,
-                source_offset + source_length,
-                reference["source_offset"],
-                reference["source_offset"] + reference["source_length"],
-            ):
-                overlap_found = True
-                break
-
-        if overlap_found:
-            TP += 1
-            ref_key = (
-                suspicious_filename,
-                source_filename,
-            )  # Use file pair as a unique key
-            detected_cases_count[ref_key] = detected_cases_count.get(ref_key, 0) + 1
-        else:
-            FP += 1
+            # Filter by filenames
+            matching_rows = df_references[
+                (df_references["suspicious_filename"] == suspicious_filename)
+                & (df_references["source_filename"] == source_filename)
+            ]
+            
+            # Search using overlap function
+            overlap_found = False
+            for _, reference in matching_rows.iterrows():
+                if overlap(
+                    suspicious_offset,
+                    suspicious_offset + suspicious_length,
+                    reference["suspicious_offset"],
+                    reference["suspicious_offset"] + reference["suspicious_length"],
+                ) and overlap(
+                    source_offset,
+                    source_offset + source_length,
+                    reference["source_offset"],
+                    reference["source_offset"] + reference["source_length"],
+                ):
+                    overlap_found = True
+                    break
+            
+            if overlap_found:
+                TP += 1
+                R_S.add(row)
+                S_R.add(reference)
+            else:
+                FP += 1
 
     FN = len(df_references) - TP
-
-    sum_Rs = sum(detected_cases_count.values())
-    abs_SR = len(detected_cases_count)
-    granularity = sum_Rs / abs_SR if abs_SR != 0 else 0
-
+    granularity = len(R_S) / len(S_R) if len(S_R) != 0 else 1
     # Calculate precision, recall, f1-score, plagdet
     precision = TP / (TP + FP) if TP + FP != 0 else 0
     recall = TP / (TP + FN) if TP + FN != 0 else 0
@@ -89,82 +85,6 @@ def evaluate_detection(df_references, df_detections):
 
     return precision, recall, f1_score, plagdet
 
-
-def process_row(detection, df_references_dict):
-    # Convert dictionary back to DataFrame
-    df_references = pd.DataFrame.from_dict(df_references_dict)
-
-    suspicious_filename = detection["suspicious_filename"]
-    source_filename = detection["source_filename"]
-    suspicious_offset = detection["suspicious_offset"]
-    suspicious_length = detection["suspicious_length"]
-    source_offset = detection["source_offset"]
-    source_length = detection["source_length"]
-
-    matching_rows = df_references[
-        (df_references["suspicious_filename"] == suspicious_filename)
-        & (df_references["source_filename"] == source_filename)
-    ]
-
-    overlap_found = False
-    for _, reference in matching_rows.iterrows():
-        if overlap(
-            suspicious_offset,
-            suspicious_offset + suspicious_length,
-            reference["suspicious_offset"],
-            reference["suspicious_offset"] + reference["suspicious_length"],
-        ) and overlap(
-            source_offset,
-            source_offset + source_length,
-            reference["source_offset"],
-            reference["source_offset"] + reference["source_length"],
-        ):
-            overlap_found = True
-            break
-
-    return overlap_found, (suspicious_filename, source_filename)
-
-
-def evaluate_detection_multiprocessing(df_references, df_detections):
-    TP = 0
-    FP = 0
-    detected_cases_count = {}
-
-    # Convert DataFrame to dictionary for serialization
-    df_references_dict = df_references.to_dict("list")
-
-    detections_list = df_detections.to_dict("records")
-
-    with Pool(N_PROCESSES) as pool:
-        results = pool.starmap(
-            process_row,
-            [(detection, df_references_dict) for detection in detections_list],
-        )
-
-    for overlap_found, ref_key in results:
-        if overlap_found:
-            TP += 1
-            detected_cases_count[ref_key] = detected_cases_count.get(ref_key, 0) + 1
-        else:
-            FP += 1
-
-    FN = len(df_references) - TP
-
-    sum_Rs = sum(detected_cases_count.values())
-    abs_SR = len(detected_cases_count)
-    granularity = sum_Rs / abs_SR if abs_SR != 0 else 0
-
-    # Calculate precision, recall, f1-score, plagdet
-    precision = TP / (TP + FP) if TP + FP != 0 else 0
-    recall = TP / (TP + FN) if TP + FN != 0 else 0
-    f1_score = (
-        2 * (precision * recall) / (precision + recall)
-        if precision + recall != 0
-        else 0
-    )
-    plagdet = f1_score / np.log2(1 + granularity)
-
-    return precision, recall, f1_score, plagdet
 
 def create_syn_sem_matrices(token_to_tfidf_weight, token_to_word_vector, join_matrix_vocab, sent_tokenized):
     sent_semantic_matrix = []
